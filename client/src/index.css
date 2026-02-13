@@ -1,0 +1,317 @@
+/* ===== Custom Fonts ===== */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap");
+
+@import "tailwindcss";
+
+/* ===== Design Tokens ===== */
+:root {
+  --bg-primary: #06060b;
+  --bg-secondary: #0e0e18;
+  --bg-card: #161625;
+  --bg-card-hover: #1e1e35;
+  --bg-glass: rgba(22, 22, 37, 0.8);
+
+  --text-primary: #eeeef5;
+  --text-secondary: #9d9db5;
+  --text-muted: #5a5a72;
+
+  --accent-red: #e50914;
+  --accent-purple: #8b5cf6;
+  --accent-gradient: linear-gradient(135deg, #e50914 0%, #b91c8a 50%, #8b5cf6 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #ff1a27 0%, #d42aa0 50%, #a07cff 100%);
+
+  --border-color: rgba(255, 255, 255, 0.05);
+  --border-hover: rgba(139, 92, 246, 0.25);
+
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow-red: 0 0 40px rgba(229, 9, 20, 0.15);
+  --shadow-glow-purple: 0 0 40px rgba(139, 92, 246, 0.12);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Reset & Base ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Subtle pattern background */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -20%, rgba(139, 92, 246, 0.06), transparent),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(229, 9, 20, 0.04), transparent);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.5);
+}
+
+/* ===== Animations ===== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes glowPulse {
+
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out both;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 0.3s ease-out both;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.25s ease-out both;
+}
+
+/* ===== Skeleton Loading ===== */
+.skeleton {
+  background: linear-gradient(90deg,
+      var(--bg-card) 25%,
+      var(--bg-card-hover) 37%,
+      var(--bg-card) 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-md);
+}
+
+/* ===== Glass Effect ===== */
+.glass-card {
+  background: var(--bg-glass);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-smooth);
+}
+
+.glass-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-glow-purple);
+  transform: translateY(-2px);
+}
+
+/* ===== Gradient Text ===== */
+.gradient-text {
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ===== Movie Card ===== */
+.movie-card-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-smooth);
+  background: var(--bg-card);
+}
+
+.movie-card-wrapper::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  transition: border-color var(--transition-fast);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.movie-card-wrapper:hover {
+  transform: translateY(-6px) scale(1.03);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.5),
+    0 0 20px rgba(229, 9, 20, 0.1);
+  z-index: 10;
+}
+
+.movie-card-wrapper:hover::after {
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.movie-card-wrapper .overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top,
+      rgba(6, 6, 11, 0.95) 0%,
+      rgba(6, 6, 11, 0.5) 40%,
+      transparent 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 10px;
+  opacity: 0;
+  transition: opacity var(--transition-smooth);
+}
+
+.movie-card-wrapper:hover .overlay {
+  opacity: 1;
+}
+
+/* Touch device: always show partial overlay */
+@media (hover: none) {
+  .movie-card-wrapper .overlay {
+    opacity: 1;
+    background: linear-gradient(to top,
+        rgba(6, 6, 11, 0.85) 0%,
+        transparent 60%);
+    padding: 8px;
+  }
+
+  .movie-card-wrapper:hover {
+    transform: none;
+    box-shadow: none;
+  }
+}
+
+/* ===== Video Player ===== */
+.video-container {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+.video-container video,
+.video-container iframe {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ===== Page Transitions ===== */
+.page-enter {
+  animation: fadeIn 0.35s ease-out;
+}
+
+/* ===== Selection ===== */
+::selection {
+  background: rgba(139, 92, 246, 0.3);
+  color: white;
+}
+
+/* ===== Focus Ring ===== */
+:focus-visible {
+  outline: 2px solid rgba(139, 92, 246, 0.5);
+  outline-offset: 2px;
+}
+
+/* ===== Image ===== */
+img {
+  image-rendering: -webkit-optimize-contrast;
+}
