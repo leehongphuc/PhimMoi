@@ -2,11 +2,10 @@ node_modules/
 dist/
 build/
 .env
+.env.local
 .DS_Store
 *.log
 .vscode/
 
-# Ignore agent temporary files but keep configuration
-.agent/logs/
-.agent/temp/
-.agent/brain/
+# Ignore agent configuration
+.agent/

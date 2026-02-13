@@ -2,8 +2,9 @@ import axios from "axios";
 
 // Axios instance for API calls
 // In dev mode, Vite proxy handles /api -> localhost:5000
+// In production, VITE_API_BASE_URL should point to Railway backend
 const apiClient = axios.create({
-    baseURL: "/api",
+    baseURL: import.meta.env.VITE_API_BASE_URL || "/api",
     timeout: 15000,
     headers: {
         "Content-Type": "application/json",
