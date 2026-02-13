@@ -5,12 +5,12 @@ const fs = require("fs");
 const path = require("path");
 
 const app = express();
-const PORT = 5000;
+const PORT = process.env.PORT || 5000; // Railway provides PORT via env
 const OPHIM_BASE = "https://ophim1.com";
 const DEFAULT_LIMIT = 25; // Items shown per page to user
 
-// Enable CORS for frontend dev server
-app.use(cors({ origin: ["http://localhost:5173", "http://localhost:3000"] }));
+// Enable CORS for all origins (production + dev)
+app.use(cors());
 app.use(express.json());
 
 // Create reusable axios instance for OPhim API
