@@ -30,7 +30,13 @@ User → Vercel (Frontend React) → Railway (Backend Express) → OPhim API
 
 ### 1.3. Cấu Hình Railway
 
-Railway sẽ tự động phát hiện cấu hình từ `railway.json` và `package.json`.
+Railway sẽ tự động phát hiện cấu hình từ `railway.toml` và `package.json`.
+
+> **⚠️ Quan trọng**: Nếu Railway không tự động build được, hãy set **Root Directory**:
+> 1. Vào **Settings** → **Service** 
+> 2. Tìm **"Root Directory"** hoặc **"Service Root"**
+> 3. Điền: `server`
+> 4. Save và Redeploy
 
 **Kiểm tra:**
 - Build Command: `npm install`
