@@ -1,8 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const axios = require("axios");
-const fs = require("fs");
-const path = require("path");
+const { initDatabase, getViewCount, incrementView, getTopViews } = require("./db");
 
 const app = express();
 const PORT = process.env.PORT || 5000; // Railway provides PORT via env
@@ -20,50 +19,8 @@ const ophimApi = axios.create({
   headers: { "User-Agent": "MotPhim/1.0" },
 });
 
-// --- View Count System ---
-const VIEWS_FILE = path.join(__dirname, "views.json");
-
-function loadViews() {
-  try {
-    if (fs.existsSync(VIEWS_FILE)) {
-      return JSON.parse(fs.readFileSync(VIEWS_FILE, "utf-8"));
-    }
-  } catch (err) {
-    console.error("Error loading views:", err.message);
-  }
-  return {};
-}
-
-function saveViews(views) {
-  try {
-    fs.writeFileSync(VIEWS_FILE, JSON.stringify(views, null, 2), "utf-8");
-  } catch (err) {
-    console.error("Error saving views:", err.message);
-  }
-}
-
-let viewsCache = loadViews();
-
-setInterval(() => saveViews(viewsCache), 30000);
-process.on("SIGINT", () => { saveViews(viewsCache); process.exit(); });
-
-function getDateKey() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-function getViewsInRange(entry, days) {
-  if (!entry || !entry.daily) return 0;
-  const now = new Date();
-  let total = 0;
-  for (let i = 0; i < days; i++) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    total += entry.daily[key] || 0;
-  }
-  return total;
-}
+// --- PostgreSQL View Count System ---
+// All view operations now use database instead of JSON file
 
 // Helper to format consistent response with custom totalPages logic
 function formatResponse(res, data, page) {
@@ -104,56 +61,39 @@ app.get("/api/movies", async (req, res) => {
 
 // --- View Count API ---
 
-app.get("/api/views/:slug", (req, res) => {
-  const slug = req.params.slug;
-  const entry = viewsCache[slug];
-  res.json({ slug, views: entry?.total || 0 });
+app.get("/api/views/:slug", async (req, res) => {
+  try {
+    const slug = req.params.slug;
+    const views = await getViewCount(slug);
+    res.json({ slug, views });
+  } catch (err) {
+    console.error("Error getting view count:", err.message);
+    res.json({ slug: req.params.slug, views: 0 });
+  }
 });
 
-app.post("/api/views/:slug", (req, res) => {
-  const slug = req.params.slug;
-  const dateKey = getDateKey();
-  const { name, thumb } = req.body || {};
-
-  if (!viewsCache[slug]) {
-    viewsCache[slug] = { total: 0, daily: {} };
+app.post("/api/views/:slug", async (req, res) => {
+  try {
+    const slug = req.params.slug;
+    const { name, thumb } = req.body || {};
+    const views = await incrementView(slug, name, thumb);
+    res.json({ slug, views });
+  } catch (err) {
+    console.error("Error incrementing view:", err.message);
+    res.status(500).json({ error: "Failed to increment view" });
   }
-  viewsCache[slug].total = (viewsCache[slug].total || 0) + 1;
-  if (!viewsCache[slug].daily) viewsCache[slug].daily = {};
-  viewsCache[slug].daily[dateKey] = (viewsCache[slug].daily[dateKey] || 0) + 1;
-
-  if (name) viewsCache[slug].name = name;
-  if (thumb) viewsCache[slug].thumb = thumb;
-
-  res.json({ slug, views: viewsCache[slug].total });
 });
 
-app.get("/api/views", (req, res) => {
-  const limit = parseInt(req.query.limit) || 10;
-  const period = req.query.period || "all";
-
-  let daysMap = { day: 1, week: 7, month: 30, all: 0 };
-  let days = daysMap[period] || 0;
-
-  let sorted;
-  if (days === 0) {
-    sorted = Object.entries(viewsCache)
-      .map(([slug, entry]) => ({
-        slug, views: entry.total || 0, name: entry.name || slug, thumb: entry.thumb || "",
-      }))
-      .sort((a, b) => b.views - a.views)
-      .slice(0, limit);
-  } else {
-    sorted = Object.entries(viewsCache)
-      .map(([slug, entry]) => ({
-        slug, views: getViewsInRange(entry, days), name: entry.name || slug, thumb: entry.thumb || "",
-      }))
-      .filter((e) => e.views > 0)
-      .sort((a, b) => b.views - a.views)
-      .slice(0, limit);
+app.get("/api/views", async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const period = req.query.period || "all";
+    const topViews = await getTopViews(limit, period);
+    res.json({ period, topViews });
+  } catch (err) {
+    console.error("Error getting top views:", err.message);
+    res.json({ period: req.query.period || "all", topViews: [] });
   }
-
-  res.json({ period, topViews: sorted });
 });
 
 // Get movie detail + episodes
@@ -369,7 +309,20 @@ app.get("/api/discover", async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🎬 MotPhim API Proxy running at http://localhost:${PORT}`);
-  console.log(`📊 View counter: ${Object.keys(viewsCache).length} movies tracked`);
-});
+// Initialize database and start server
+(async () => {
+  try {
+    if (process.env.DATABASE_URL) {
+      await initDatabase();
+      console.log("📊 Using PostgreSQL for view tracking");
+    } else {
+      console.warn("⚠️  DATABASE_URL not set - view tracking disabled");
+    }
+  } catch (err) {
+    console.error("Failed to initialize database:", err.message);
+  }
+
+  app.listen(PORT, () => {
+    console.log(`🎬 MotPhim API Proxy running at http://localhost:${PORT}`);
+  });
+})();
