@@ -1,5 +1,5 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { useMovieDetail, useViewCount, useIncrementView } from "../api/useMovies";
+import { useMovieDetail, useViewCount } from "../api/useMovies";
 import { getImageUrl } from "../api/apiClient";
 import {
     Play,
@@ -20,7 +20,6 @@ export default function MovieDetailPage() {
     const { data, isLoading, error } = useMovieDetail(slug);
     const { data: viewData } = useViewCount(slug);
     const movie = data?.movie;
-    useIncrementView(slug, movie?.name, movie?.thumb_url); // Auto-increment on page visit
 
     if (isLoading) {
         return (
