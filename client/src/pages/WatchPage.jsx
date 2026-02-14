@@ -25,25 +25,85 @@ export default function WatchPage() {
 
     const episodes = data?.episodes || [];
 
-    // Get all server episodes
-    const allEpisodes = useMemo(() => {
-        if (episodes.length > 0 && episodes[0]?.server_data) {
-            return episodes[0].server_data;
-        }
-        return [];
-    }, [episodes]);
+    // State for selected server and episode range
+    const [currentServerIndex, setCurrentServerIndex] = useState(0);
+    const [currentRangeIndex, setCurrentRangeIndex] = useState(0);
 
-    // Find current episode
+    // const episodes = data?.episodes || []; // Already declared above
+    const currentServer = episodes[currentServerIndex];
+    const serverData = currentServer?.server_data || [];
+
+    // Group episodes into ranges of 50
+    const episodeRanges = useMemo(() => {
+        if (!serverData.length) return [];
+        const ranges = [];
+        const chunkSize = 50;
+        for (let i = 0; i < serverData.length; i += chunkSize) {
+            ranges.push({
+                start: i,
+                end: Math.min(i + chunkSize, serverData.length),
+                name: `${i + 1}-${Math.min(i + chunkSize, serverData.length)}`
+            });
+        }
+        return ranges;
+    }, [serverData]);
+
+    const currentEpisodes = useMemo(() => {
+        if (!episodeRanges.length) return [];
+        const range = episodeRanges[currentRangeIndex];
+        return serverData.slice(range?.start || 0, range?.end || 0);
+    }, [serverData, episodeRanges, currentRangeIndex]);
+
+    // Update current server and range when episode changes or data loads
+    useEffect(() => {
+        if (!episodes.length) return;
+
+        // precision finding of episode in all servers
+        const epSlug = episode?.replace("tap-", "");
+
+        // 1. Find which server has this episode (default to current or 0)
+        let foundServerIdx = currentServerIndex;
+        let foundEpIdx = -1;
+
+        // Try to find in current server first
+        const currentServerData = episodes[currentServerIndex]?.server_data || [];
+        foundEpIdx = currentServerData.findIndex(ep => ep.slug === epSlug || ep.name === epSlug);
+
+        // If not found, look in other servers
+        if (foundEpIdx === -1) {
+            episodes.forEach((server, sIdx) => {
+                if (sIdx === currentServerIndex) return;
+                const idx = server.server_data?.findIndex(ep => ep.slug === epSlug || ep.name === epSlug);
+                if (idx !== -1) {
+                    foundServerIdx = sIdx;
+                    foundEpIdx = idx;
+                }
+            });
+        }
+
+        // If explicitly switching episode, we might need to update server
+        if (foundServerIdx !== currentServerIndex) {
+            setCurrentServerIndex(foundServerIdx);
+        }
+
+        // 2. Determine range for the found episode
+        if (foundEpIdx !== -1) {
+            const rangeIdx = Math.floor(foundEpIdx / 50);
+            setCurrentRangeIndex(rangeIdx);
+        }
+    }, [episode, episodes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Find current episode object from the *selected* server
     const episodeSlug = episode?.replace("tap-", "") || "1";
-    const currentEpIndex = allEpisodes.findIndex(
+    const currentEpIndex = serverData.findIndex(
         (ep) => ep.slug === episodeSlug || ep.name === episodeSlug
     );
-    const currentEp = currentEpIndex >= 0 ? allEpisodes[currentEpIndex] : allEpisodes[0];
+    const currentEp = currentEpIndex >= 0 ? serverData[currentEpIndex] : serverData[0];
 
-    const prevEp = currentEpIndex > 0 ? allEpisodes[currentEpIndex - 1] : null;
+    const prevEp = currentEpIndex > 0 ? serverData[currentEpIndex - 1] : null;
     const nextEp =
-        currentEpIndex < allEpisodes.length - 1
-            ? allEpisodes[currentEpIndex + 1]
+        currentEpIndex < serverData.length - 1
+            ? serverData[currentEpIndex + 1]
             : null;
 
     // Scroll to top on episode change
@@ -128,35 +188,98 @@ export default function WatchPage() {
             </div>
 
             {/* Episode List */}
-            {allEpisodes.length > 1 && (
-                <div className="glass-card p-5 mt-6">
-                    <div className="flex items-center gap-2 mb-4">
-                        <List className="w-4 h-4 text-[#8b5cf6]" />
-                        <h2 className="text-base font-bold text-white">Chọn Tập</h2>
-                        <span className="text-xs text-[#6b6b80] ml-auto">
-                            {allEpisodes.length} tập
+            <div className="glass-card p-5 mt-6">
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <List className="w-5 h-5 text-[#8b5cf6]" />
+                            <h2 className="text-lg font-bold text-white">Danh sách tập</h2>
+                        </div>
+                        <span className="text-xs text-[#6b6b80] bg-white/5 px-3 py-1 rounded-full">
+                            {serverData.length} tập
                         </span>
                     </div>
-                    <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
-                        {allEpisodes.map((ep, idx) => {
+
+                    {/* Server Selection Tabs */}
+                    {episodes.length > 1 && (
+                        <div className="flex items-end gap-1 border-b border-white/5 mb-4">
+                            {/* Label is less important, tabs mimic browser tabs or folder tabs */}
+                            {episodes.map((server, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => {
+                                        setCurrentServerIndex(idx);
+                                        // Reset to first range when switching server
+                                        setCurrentRangeIndex(0);
+                                    }}
+                                    className={`flex items-center gap-2 px-6 py-3 text-base font-semibold transition-all relative ${currentServerIndex === idx
+                                        ? "bg-[#1f2937] text-white border-t border-x border-[#374151]"
+                                        : "bg-[#111827] text-[#9ca3af] hover:bg-[#1f2937] hover:text-[#d1d5db] border-t border-x border-transparent"
+                                        }`}
+                                    style={{
+                                        // Rectangular tabs
+                                        borderRadius: 0,
+                                        backgroundColor: currentServerIndex === idx ? '#2D3748' : '#1A202C', // Using Tailwind Slate-800 vs Gray-900 approximate
+                                        color: currentServerIndex === idx ? '#63B3ED' : '#A0AEC0', // Blue-400 vs Gray-400
+                                        marginBottom: -1, // Overlap border
+                                        borderBottom: currentServerIndex === idx ? '1px solid #2D3748' : '1px solid #2D3748',
+                                    }}
+                                >
+                                    <List className="w-4 h-4" />
+                                    {server.server_name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Episode Range Tabs (only if > 50 eps) */}
+                    {episodeRanges.length > 1 && (
+                        <div className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none">
+                            {episodeRanges.map((range, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => setCurrentRangeIndex(idx)}
+                                    // Rectangular, larger but slightly smaller than server tabs
+                                    className={`px-5 py-2 text-sm font-medium whitespace-nowrap transition-all ${currentRangeIndex === idx
+                                        ? "bg-white/20 text-white border border-white/20"
+                                        : "bg-transparent text-[#6b6b80] hover:text-[#9d9db5]"
+                                        }`}
+                                    style={{ borderRadius: 0 }}
+                                >
+                                    {range.name}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Grid */}
+                    <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                        {currentEpisodes.map((ep, idx) => {
+                            const realIdx = (episodeRanges[currentRangeIndex]?.start || 0) + idx;
                             const isActive =
-                                ep.slug === episodeSlug || ep.name === episodeSlug;
+                                (ep.slug === episodeSlug || ep.name === episodeSlug) &&
+                                currentServerIndex === (episodes.findIndex(s => s.server_data?.some(e => e.slug === episodeSlug)) !== -1 ? episodes.findIndex(s => s.server_data?.some(e => e.slug === episodeSlug)) : 0);
+
+                            // Check if this episode is the currently playing one
+                            const isPlaying = ep.slug === currentEp?.slug || ep.name === currentEp?.name;
+
                             return (
                                 <Link
-                                    key={idx}
+                                    key={realIdx}
                                     to={`/xem/${slug}/tap-${ep.slug || ep.name}`}
-                                    className={`flex items-center justify-center h-10 rounded-lg text-sm font-medium transition-all ${isActive
-                                        ? "bg-gradient-to-r from-[#e50914] to-[#8b5cf6] text-white shadow-lg shadow-red-500/20"
-                                        : "bg-white/5 border border-white/10 text-[#a0a0b8] hover:text-white hover:bg-white/10"
+                                    className={`flex items-center justify-center h-10 text-sm font-medium transition-all ${isPlaying
+                                        ? "bg-gradient-to-r from-[#e50914] to-[#8b5cf6] text-white shadow-lg shadow-red-500/20 scale-105"
+                                        : "bg-white/5 border border-white/10 text-[#a0a0b8] hover:text-white hover:bg-white/10 hover:border-white/20"
                                         }`}
+                                    style={{ borderRadius: 0 }}
                                 >
-                                    {ep.name || idx + 1}
+                                    {ep.name || realIdx + 1}
                                 </Link>
                             );
                         })}
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* Movie Info */}
             <div className="glass-card p-5 mt-6">

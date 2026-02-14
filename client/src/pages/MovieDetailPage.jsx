@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useMovieDetail, useViewCount } from "../api/useMovies";
 import { getImageUrl } from "../api/apiClient";
@@ -19,7 +20,38 @@ export default function MovieDetailPage() {
     const navigate = useNavigate();
     const { data, isLoading, error } = useMovieDetail(slug);
     const { data: viewData } = useViewCount(slug);
+
+    const [currentServerIndex, setCurrentServerIndex] = useState(0);
+    const [currentRangeIndex, setCurrentRangeIndex] = useState(0);
+    const [activeTab, setActiveTab] = useState('content');
+
     const movie = data?.movie;
+    const episodes = data?.episodes || [];
+    const currentServer = episodes[currentServerIndex];
+    const serverData = currentServer?.server_data || [];
+
+    // Group episodes into ranges of 50
+    const episodeRanges = useMemo(() => {
+        if (!serverData.length) return [];
+        const ranges = [];
+        const chunkSize = 50;
+        for (let i = 0; i < serverData.length; i += chunkSize) {
+            ranges.push({
+                start: i,
+                end: Math.min(i + chunkSize, serverData.length),
+                name: `${i + 1}-${Math.min(i + chunkSize, serverData.length)}`
+            });
+        }
+        return ranges;
+    }, [serverData]);
+
+    const currentEpisodes = useMemo(() => {
+        if (!episodeRanges.length) return [];
+        const range = episodeRanges[currentRangeIndex];
+        return serverData.slice(range?.start || 0, range?.end || 0);
+    }, [serverData, episodeRanges, currentRangeIndex]);
+
+    const allEpisodes = serverData; // For backward compatibility with existing check
 
     if (isLoading) {
         return (
@@ -52,44 +84,32 @@ export default function MovieDetailPage() {
         );
     }
 
-    const episodes = data.episodes || [];
-    const allEpisodes =
-        episodes.length > 0 && episodes[0]?.server_data
-            ? episodes[0].server_data
-            : [];
-
     const posterUrl = getImageUrl(movie.poster_url);
     const thumbUrl = getImageUrl(movie.thumb_url);
 
     return (
         <div className="page-enter">
             {/* ===== Hero Backdrop ===== */}
+            {/* ===== Hero Backdrop (Redesigned) ===== */}
             <div
-                className="relative -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-10 xl:-mx-16 -mt-16 lg:-mt-20 mb-10 sm:mb-12"
+                className="relative -mx-3 sm:-mx-4 md:-mx-6 lg:-mx-10 xl:-mx-16 -mt-16 lg:-mt-20 mb-8 overflow-hidden"
             >
-                <div className="h-[320px] sm:h-[380px] lg:h-[460px] overflow-hidden">
+                {/* Background Image (Absolute) */}
+                <div className="absolute inset-0">
                     <img
                         src={thumbUrl}
                         alt={movie.name}
                         className="w-full h-full object-cover"
-                        style={{ opacity: 0.45, filter: 'blur(2px)' }}
+                        style={{ opacity: 0.3, filter: 'blur(10px)', transform: 'scale(1.1)' }}
                     />
+                    {/* Gradient Overlays */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#06060b] via-[#06060b]/80 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#06060b] via-[#06060b]/40 to-transparent" />
                 </div>
-                {/* Overlays */}
-                <div
-                    className="absolute inset-0"
-                    style={{ background: 'linear-gradient(to top, #06060b 0%, rgba(6,6,11,0.7) 50%, rgba(6,6,11,0.3) 100%)' }}
-                />
-                <div
-                    className="absolute inset-0"
-                    style={{ background: 'linear-gradient(to right, #06060b 0%, rgba(6,6,11,0.6) 40%, transparent 100%)' }}
-                />
 
-
-
-                {/* Content overlay */}
-                <div className="absolute bottom-0 left-0 right-0 px-3 sm:px-4 md:px-6 lg:px-10 xl:px-16 pb-8">
-                    <div className="flex flex-col md:flex-row gap-6 lg:gap-10 items-end md:items-end">
+                {/* Content (Relative - Flows naturally) */}
+                <div className="relative z-10 pt-[120px] lg:pt-[160px] pb-8 lg:pb-12" style={{ paddingLeft: '5%', paddingRight: '5%' }}>
+                    <div className="flex flex-col md:flex-row gap-8 lg:gap-12 items-center md:items-end">
                         {/* Poster */}
                         <div className="shrink-0 w-[140px] sm:w-[160px] lg:w-[200px] relative z-10">
                             <img
@@ -102,13 +122,14 @@ export default function MovieDetailPage() {
                         </div>
 
                         {/* Info */}
-                        <div className="flex-1 min-w-0 pb-4 md:pb-6">
+                        <div className="flex-1 min-w-0 pb-4 md:pb-6 text-center md:text-left">
                             <h1
                                 className="text-xl sm:text-2xl lg:text-4xl font-black text-white leading-tight mb-1.5"
                                 style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}
                             >
                                 {movie.name}
                             </h1>
+
                             {movie.origin_name && (
                                 <p className="text-sm lg:text-base text-white/40 italic mb-4 lg:mb-5">
                                     {movie.origin_name}
@@ -116,7 +137,7 @@ export default function MovieDetailPage() {
                             )}
 
                             {/* Meta badges - inline style */}
-                            <div className="flex flex-wrap gap-2.5 mb-5">
+                            <div className="flex flex-wrap gap-2.5 mb-5 justify-center md:justify-start">
                                 {movie.year && (
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 6, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', fontSize: 13, color: '#9d9db5' }}>
                                         <Calendar style={{ width: 13, height: 13 }} /> {movie.year}
@@ -165,48 +186,131 @@ export default function MovieDetailPage() {
             </div>
 
             {/* ===== Main Content ===== */}
-            <div className="mt-4 md:mt-6 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-                {/* Left - Details */}
-                <div className="lg:col-span-2 space-y-5">
-                    {/* Description */}
-                    {movie.content && (
-                        <div style={{ background: 'rgba(22,22,37,0.6)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10, padding: '20px 24px' }}>
-                            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#eeeef5', marginBottom: 12 }}>Nội dung phim</h2>
-                            <div
-                                className="text-sm leading-relaxed"
-                                style={{ color: '#9d9db5' }}
-                                dangerouslySetInnerHTML={{ __html: movie.content }}
-                            />
-                        </div>
-                    )}
+            <div style={{ padding: '0 5%' }}>
+                {/* Content Tabs */}
+                <div className="lg:col-span-3 mt-8 md:mt-12 lg:mt-16">
+                    {/* Tabs Header */}
+                    <div className="flex items-center gap-6 border-b border-white/5 mb-6">
+                        <button
+                            onClick={() => setActiveTab('content')}
+                            className={`pb-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-all ${activeTab === 'content'
+                                ? 'border-[#e50914] text-white'
+                                : 'border-transparent text-[#9d9db5] hover:text-[#d1d5db]'
+                                }`}
+                        >
+                            Nội dung phim
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('info')}
+                            className={`pb-4 text-sm font-bold uppercase tracking-wider border-b-2 transition-all ${activeTab === 'info'
+                                ? 'border-[#e50914] text-white'
+                                : 'border-transparent text-[#9d9db5] hover:text-[#d1d5db]'
+                                }`}
+                        >
+                            Thông tin phim
+                        </button>
+                    </div>
 
-                    {/* Episodes */}
-                    {allEpisodes.length > 0 && (
-                        <div style={{ background: 'rgba(22,22,37,0.6)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10, padding: '20px 24px' }}>
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 style={{ fontSize: 16, fontWeight: 700, color: '#eeeef5' }}>Danh sách tập</h2>
-                                <span style={{ fontSize: 11, color: '#5a5a72', background: 'rgba(255,255,255,0.04)', padding: '3px 10px', borderRadius: 20 }}>
-                                    {allEpisodes.length} tập
-                                </span>
+                    {/* Tab Content */}
+                    <div className="min-h-[200px]">
+                        {activeTab === 'content' && (
+                            <div className="animate-fade-in">
+                                {movie.content ? (
+                                    <div
+                                        className="text-[#9d9db5] text-sm leading-relaxed"
+                                        dangerouslySetInnerHTML={{ __html: movie.content }}
+                                    />
+                                ) : (
+                                    <p className="text-[#5a5a72] italic">Đang cập nhật nội dung...</p>
+                                )}
                             </div>
-                            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-10 gap-1.5 sm:gap-2">
+                        )}
+
+                        {activeTab === 'info' && (
+                            <div className="animate-fade-in grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4">
+                                {movie.director && movie.director.length > 0 && (
+                                    <InfoRow
+                                        icon={<Clapperboard style={{ width: 14, height: 14, color: '#5a5a72' }} />}
+                                        label="Đạo diễn"
+                                        value={Array.isArray(movie.director) ? movie.director.join(", ") : movie.director}
+                                    />
+                                )}
+                                {movie.actor && movie.actor.length > 0 && (
+                                    <InfoRow
+                                        icon={<Users style={{ width: 14, height: 14, color: '#5a5a72' }} />}
+                                        label="Diễn viên"
+                                        value={Array.isArray(movie.actor) ? movie.actor.slice(0, 8).join(", ") : movie.actor}
+                                    />
+                                )}
+                                {movie.category && movie.category.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                            <Film style={{ width: 14, height: 14, color: '#5a5a72' }} />
+                                            <span style={{ fontSize: 11, color: '#5a5a72', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Thể loại</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {(Array.isArray(movie.category) ? movie.category : []).map((cat) => (
+                                                <Link
+                                                    key={cat.slug}
+                                                    to={`/the-loai/${cat.slug}`}
+                                                    className="px-2.5 py-1 text-xs rounded bg-white/5 border border-white/5 text-[#9d9db5] hover:text-white hover:bg-white/10 transition-colors"
+                                                >
+                                                    {cat.name}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {movie.country && movie.country.length > 0 && (
+                                    <div>
+                                        <div className="flex items-center gap-1.5 mb-2">
+                                            <Globe style={{ width: 14, height: 14, color: '#5a5a72' }} />
+                                            <span style={{ fontSize: 11, color: '#5a5a72', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quốc gia</span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {(Array.isArray(movie.country) ? movie.country : []).map((c) => (
+                                                <Link
+                                                    key={c.slug}
+                                                    to={`/quoc-gia/${c.slug}`}
+                                                    className="px-2.5 py-1 text-xs rounded bg-white/5 border border-white/5 text-[#9d9db5] hover:text-white hover:bg-white/10 transition-colors"
+                                                >
+                                                    {c.name}
+                                                </Link>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {movie.episode_total && (
+                                    <InfoRow
+                                        icon={<Tv style={{ width: 14, height: 14, color: '#5a5a72' }} />}
+                                        label="Tổng số tập"
+                                        value={`${movie.episode_total} Tập`}
+                                    />
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Episodes Section - Full Width below tabs */}
+                <div className="lg:col-span-3 mt-8">
+                    {/* Episodes List (No Server Tabs, No Ranges) */}
+                    {episodes.length > 0 && (
+                        <div style={{ background: 'rgba(22,22,37,0.6)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10, padding: '20px 24px' }}>
+                            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#eeeef5', marginBottom: 16 }}>Danh sách tập</h2>
+
+                            <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2 max-h-[400px] overflow-y-auto pr-1">
                                 {allEpisodes.map((ep, idx) => (
                                     <Link
                                         key={idx}
-                                        to={`/xem/${slug}/tap-${ep.slug || idx + 1}`}
+                                        to={`/xem/${slug}/tap-${ep.slug || ep.name}`}
+                                        className="flex items-center justify-center h-10 text-sm font-medium transition-all"
                                         style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            height: 36,
-                                            borderRadius: 4,
                                             background: 'rgba(255,255,255,0.04)',
                                             border: '1px solid rgba(255,255,255,0.06)',
-                                            fontSize: 13,
-                                            fontWeight: 500,
+                                            borderRadius: 0, // Rectangular
                                             color: '#9d9db5',
-                                            textDecoration: 'none',
-                                            transition: 'all 0.15s ease',
+                                            textDecoration: 'none'
                                         }}
                                         onMouseEnter={(e) => {
                                             e.currentTarget.style.background = 'linear-gradient(135deg, #e50914, #8b5cf6)';
@@ -225,83 +329,6 @@ export default function MovieDetailPage() {
                             </div>
                         </div>
                     )}
-                </div>
-
-                {/* Right - Sidebar */}
-                <div>
-                    <div style={{ background: 'rgba(22,22,37,0.6)', border: '1px solid rgba(255,255,255,0.04)', borderRadius: 10, padding: '20px 24px' }}>
-                        <h2 style={{ fontSize: 16, fontWeight: 700, color: '#eeeef5', marginBottom: 16 }}>Thông tin phim</h2>
-
-                        <div className="space-y-4">
-                            {movie.director && movie.director.length > 0 && (
-                                <InfoRow
-                                    icon={<Clapperboard style={{ width: 14, height: 14, color: '#5a5a72' }} />}
-                                    label="Đạo diễn"
-                                    value={Array.isArray(movie.director) ? movie.director.join(", ") : movie.director}
-                                />
-                            )}
-
-                            {movie.actor && movie.actor.length > 0 && (
-                                <InfoRow
-                                    icon={<Users style={{ width: 14, height: 14, color: '#5a5a72' }} />}
-                                    label="Diễn viên"
-                                    value={Array.isArray(movie.actor) ? movie.actor.slice(0, 8).join(", ") : movie.actor}
-                                />
-                            )}
-
-                            {movie.category && movie.category.length > 0 && (
-                                <div>
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <Film style={{ width: 14, height: 14, color: '#5a5a72' }} />
-                                        <span style={{ fontSize: 11, color: '#5a5a72', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Thể loại</span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {(Array.isArray(movie.category) ? movie.category : []).map((cat) => (
-                                            <Link
-                                                key={cat.slug}
-                                                to={`/the-loai/${cat.slug}`}
-                                                style={{ padding: '3px 10px', fontSize: 12, borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: '#9d9db5', textDecoration: 'none', transition: 'all 0.15s' }}
-                                                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(139,92,246,0.15)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; }}
-                                                onMouseLeave={(e) => { e.currentTarget.style.color = '#9d9db5'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
-                                            >
-                                                {cat.name}
-                                            </Link>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {movie.country && movie.country.length > 0 && (
-                                <div>
-                                    <div className="flex items-center gap-1.5 mb-2">
-                                        <Globe style={{ width: 14, height: 14, color: '#5a5a72' }} />
-                                        <span style={{ fontSize: 11, color: '#5a5a72', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quốc gia</span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {(Array.isArray(movie.country) ? movie.country : []).map((c) => (
-                                            <Link
-                                                key={c.slug}
-                                                to={`/quoc-gia/${c.slug}`}
-                                                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 10px', fontSize: 12, borderRadius: 4, background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: '#9d9db5', textDecoration: 'none', transition: 'all 0.15s' }}
-                                                onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(139,92,246,0.15)'; e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; }}
-                                                onMouseLeave={(e) => { e.currentTarget.style.color = '#9d9db5'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
-                                            >
-                                                {c.name}
-                                            </Link>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {movie.episode_total && (
-                                <InfoRow
-                                    icon={<Tv style={{ width: 14, height: 14, color: '#5a5a72' }} />}
-                                    label="Tổng số tập"
-                                    value={`${movie.episode_total} Tập`}
-                                />
-                            )}
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
