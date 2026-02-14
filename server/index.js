@@ -19,8 +19,8 @@ const ophimApi = axios.create({
   headers: { "User-Agent": "MotPhim/1.0" },
 });
 
-// --- PostgreSQL View Count System ---
-// All view operations now use database instead of JSON file
+// --- Firebase View Count System ---
+// All view operations use Firestore database
 
 // Helper to format consistent response with custom totalPages logic
 function formatResponse(res, data, page) {
@@ -189,14 +189,7 @@ app.get("/api/nam-phat-hanh/:year", async (req, res) => {
 // ============================================================
 // DISCOVER FILTER - with server-side cache for multi-filter
 // ============================================================
-// When multi-filtering, OPhim only supports 1 filter dimension.
-// Strategy: Fetch many source pages, filter ALL items, cache results,
-// then paginate from the cached filtered list.
-// This guarantees: exact 25 items/page, accurate totalPages, 
-// accurate totalItems count, and fast subsequent page loads.
-// ============================================================
-
-const discoverCache = new Map(); // key -> { items: [], timestamp: number }
+const discoverCache = new Map();
 const DISCOVER_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 function getDiscoverCacheKey(category, country, year) {
@@ -225,7 +218,6 @@ app.get("/api/discover", async (req, res) => {
       (category && !apiUrl.includes("the-loai"));
 
     if (!needsFiltering) {
-      // --- SINGLE FILTER MODE: direct pass-through ---
       const { data } = await ophimApi.get(`${apiUrl}?page=${userPage}&limit=${DEFAULT_LIMIT}`);
       formatResponse(res, data, userPage);
       return;
@@ -238,10 +230,8 @@ app.get("/api/discover", async (req, res) => {
     let filteredItems;
 
     if (cached && (Date.now() - cached.timestamp < DISCOVER_CACHE_TTL)) {
-      // Use cached filtered results (instant!)
       filteredItems = cached.items;
     } else {
-      // Fetch 10 source pages in parallel (1000 items)
       const SOURCE_LIMIT = 100;
       const MAX_SOURCE_PAGES = 10;
 
@@ -276,7 +266,6 @@ app.get("/api/discover", async (req, res) => {
         return true;
       });
 
-      // Cache the filtered results
       filteredItems = allItems;
       discoverCache.set(cacheKey, { items: filteredItems, timestamp: Date.now() });
       console.log(`🔍 Discover cache set: "${cacheKey}" → ${filteredItems.length} items`);
@@ -309,17 +298,14 @@ app.get("/api/discover", async (req, res) => {
   }
 });
 
-// Initialize database and start server
+// Initialize Firebase and start server
 (async () => {
   try {
-    if (process.env.DATABASE_URL) {
-      await initDatabase();
-      console.log("📊 Using PostgreSQL for view tracking");
-    } else {
-      console.warn("⚠️  DATABASE_URL not set - view tracking disabled");
-    }
+    await initDatabase();
+    console.log("📊 Using Firebase Firestore for view tracking");
   } catch (err) {
-    console.error("Failed to initialize database:", err.message);
+    console.error("Failed to initialize Firebase:", err.message);
+    console.warn("⚠️  View tracking may not work correctly");
   }
 
   app.listen(PORT, () => {

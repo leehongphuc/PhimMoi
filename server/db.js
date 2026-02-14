@@ -1,45 +1,43 @@
-const { Pool } = require("pg");
+const admin = require("firebase-admin");
 
-// PostgreSQL connection pool
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-});
+// Initialize Firebase Admin SDK
+function initDatabase() {
+    // Check for Firebase credentials
+    const firebaseConfig = process.env.FIREBASE_CONFIG;
 
-// Initialize database table
-async function initDatabase() {
-    const client = await pool.connect();
-    try {
-        await client.query(`
-      CREATE TABLE IF NOT EXISTS movie_views (
-        slug VARCHAR(255) PRIMARY KEY,
-        name VARCHAR(500),
-        thumb VARCHAR(500),
-        total_views INTEGER DEFAULT 0,
-        daily_views JSONB DEFAULT '{}'::jsonb,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_total_views ON movie_views(total_views DESC);
-    `);
-        console.log("✅ Database initialized successfully");
-    } catch (err) {
-        console.error("❌ Database initialization error:", err.message);
-        throw err;
-    } finally {
-        client.release();
+    if (firebaseConfig) {
+        // Production: use JSON config from environment variable
+        const serviceAccount = JSON.parse(firebaseConfig);
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+    } else if (process.env.FIREBASE_PROJECT_ID) {
+        // Alternative: use individual env vars
+        admin.initializeApp({
+            credential: admin.credential.cert({
+                projectId: process.env.FIREBASE_PROJECT_ID,
+                clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+                privateKey: (process.env.FIREBASE_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+            }),
+        });
+    } else {
+        throw new Error("No Firebase credentials found. Set FIREBASE_CONFIG or FIREBASE_PROJECT_ID env vars.");
     }
+
+    console.log("✅ Firebase initialized successfully");
+}
+
+// Get Firestore instance
+function getDb() {
+    return admin.firestore();
 }
 
 // Get view count for a specific movie
 async function getViewCount(slug) {
     try {
-        const result = await pool.query(
-            "SELECT total_views FROM movie_views WHERE slug = $1",
-            [slug]
-        );
-        return result.rows[0]?.total_views || 0;
+        const doc = await getDb().collection("movie_views").doc(slug).get();
+        if (!doc.exists) return 0;
+        return doc.data().total_views || 0;
     } catch (err) {
         console.error(`Error getting view count for ${slug}:`, err.message);
         return 0;
@@ -49,80 +47,113 @@ async function getViewCount(slug) {
 // Increment view count for a movie
 async function incrementView(slug, name, thumb) {
     const dateKey = getDateKey();
-    const client = await pool.connect();
+    const db = getDb();
+    const docRef = db.collection("movie_views").doc(slug);
 
     try {
-        await client.query("BEGIN");
+        const result = await db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(docRef);
 
-        // Upsert movie view record
-        const result = await client.query(
-            `INSERT INTO movie_views (slug, name, thumb, total_views, daily_views, updated_at)
-       VALUES ($1, $2, $3, 1, jsonb_build_object($4, 1), NOW())
-       ON CONFLICT (slug)
-       DO UPDATE SET
-         total_views = movie_views.total_views + 1,
-         daily_views = jsonb_set(
-           movie_views.daily_views,
-           ARRAY[$4],
-           (COALESCE(movie_views.daily_views->>$4, '0')::int + 1)::text::jsonb
-         ),
-         name = COALESCE($2, movie_views.name),
-         thumb = COALESCE($3, movie_views.thumb),
-         updated_at = NOW()
-       RETURNING total_views`,
-            [slug, name, thumb, dateKey]
-        );
+            if (!doc.exists) {
+                // Create new record
+                const newData = {
+                    slug,
+                    name: name || slug,
+                    thumb: thumb || "",
+                    total_views: 1,
+                    daily_views: { [dateKey]: 1 },
+                    created_at: admin.firestore.FieldValue.serverTimestamp(),
+                    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+                };
+                transaction.set(docRef, newData);
+                return 1;
+            } else {
+                // Update existing
+                const data = doc.data();
+                const newTotal = (data.total_views || 0) + 1;
+                const dailyViews = data.daily_views || {};
+                dailyViews[dateKey] = (dailyViews[dateKey] || 0) + 1;
 
-        await client.query("COMMIT");
-        return result.rows[0].total_views;
+                const updateData = {
+                    total_views: newTotal,
+                    daily_views: dailyViews,
+                    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+                };
+                if (name) updateData.name = name;
+                if (thumb) updateData.thumb = thumb;
+
+                transaction.update(docRef, updateData);
+                return newTotal;
+            }
+        });
+
+        return result;
     } catch (err) {
-        await client.query("ROLLBACK");
         console.error(`Error incrementing view for ${slug}:`, err.message);
         throw err;
-    } finally {
-        client.release();
     }
 }
 
 // Get top viewed movies
 async function getTopViews(limit = 10, period = "all") {
     try {
-        const daysMap = { day: 1, week: 7, month: 30, all: 0 };
-        const days = daysMap[period] || 0;
+        const db = getDb();
 
-        if (days === 0) {
-            // All-time top views
-            const result = await pool.query(
-                `SELECT slug, name, thumb, total_views as views
-         FROM movie_views
-         ORDER BY total_views DESC
-         LIMIT $1`,
-                [limit]
-            );
-            return result.rows;
+        if (period === "all" || !period) {
+            // All-time top views - simple query
+            const snapshot = await db
+                .collection("movie_views")
+                .orderBy("total_views", "desc")
+                .limit(limit)
+                .get();
+
+            return snapshot.docs.map((doc) => {
+                const data = doc.data();
+                return {
+                    slug: doc.id,
+                    name: data.name || doc.id,
+                    thumb: data.thumb || "",
+                    views: data.total_views || 0,
+                };
+            });
         } else {
-            // Period-based views (calculate from daily_views JSONB)
-            const cutoffDate = new Date();
-            cutoffDate.setDate(cutoffDate.getDate() - days);
+            // Period-based: calculate from daily_views
+            const daysMap = { day: 1, week: 7, month: 30 };
+            const days = daysMap[period] || 1;
 
-            const result = await pool.query(
-                `SELECT slug, name, thumb, total_views,
-         (
-           SELECT COALESCE(SUM((value)::int), 0)
-           FROM jsonb_each_text(daily_views)
-           WHERE key >= $2
-         ) as views
-         FROM movie_views
-         WHERE (
-           SELECT COALESCE(SUM((value)::int), 0)
-           FROM jsonb_each_text(daily_views)
-           WHERE key >= $2
-         ) > 0
-         ORDER BY views DESC
-         LIMIT $1`,
-                [limit, cutoffDate.toISOString().split("T")[0]]
-            );
-            return result.rows;
+            // Get date keys for the period
+            const dateKeys = [];
+            for (let i = 0; i < days; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - i);
+                dateKeys.push(getDateKey(d));
+            }
+
+            // Fetch all documents (Firestore doesn't support computed field ordering)
+            const snapshot = await db.collection("movie_views").get();
+
+            const results = [];
+            snapshot.docs.forEach((doc) => {
+                const data = doc.data();
+                const dailyViews = data.daily_views || {};
+                let periodViews = 0;
+                dateKeys.forEach((key) => {
+                    periodViews += dailyViews[key] || 0;
+                });
+
+                if (periodViews > 0) {
+                    results.push({
+                        slug: doc.id,
+                        name: data.name || doc.id,
+                        thumb: data.thumb || "",
+                        views: periodViews,
+                    });
+                }
+            });
+
+            // Sort by views descending and limit
+            results.sort((a, b) => b.views - a.views);
+            return results.slice(0, limit);
         }
     } catch (err) {
         console.error("Error getting top views:", err.message);
@@ -130,14 +161,13 @@ async function getTopViews(limit = 10, period = "all") {
     }
 }
 
-// Helper: Get current date key (YYYY-MM-DD)
-function getDateKey() {
-    const d = new Date();
+// Helper: Get date key (YYYY-MM-DD)
+function getDateKey(date) {
+    const d = date || new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 module.exports = {
-    pool,
     initDatabase,
     getViewCount,
     incrementView,
