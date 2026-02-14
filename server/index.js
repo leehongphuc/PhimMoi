@@ -302,7 +302,7 @@ app.get("/api/discover", async (req, res) => {
 (async () => {
   try {
     await initDatabase();
-    console.log("📊 Using Firebase Firestore for view tracking");
+    console.log("📊 Using Firebase Realtime Database for view tracking");
   } catch (err) {
     console.error("Failed to initialize Firebase:", err.message);
     console.warn("⚠️  View tracking may not work correctly");
