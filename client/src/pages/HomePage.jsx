@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+
+import { Link, useSearchParams } from "react-router-dom";
 import { useNewMovies } from "../api/useMovies";
 import MovieGrid from "../components/MovieGrid";
 import Pagination from "../components/Pagination";
@@ -8,7 +8,8 @@ import TopViewedSidebar from "../components/TopViewedSidebar";
 import { Flame } from "lucide-react";
 
 export default function HomePage() {
-    const [page, setPage] = useState(1);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = parseInt(searchParams.get("page")) || 1;
     const { data, isLoading } = useNewMovies(page);
 
     const movies = data?.data?.items || [];
@@ -51,7 +52,7 @@ export default function HomePage() {
                             currentPage={pagination.currentPage || page}
                             totalPages={pagination.pageRanges || pagination.totalPages || 1}
                             onPageChange={(p) => {
-                                setPage(p);
+                                setSearchParams({ page: String(p) });
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                             }}
                         />

@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useCategoryMovies } from "../api/useMovies";
 import MovieGrid from "../components/MovieGrid";
 import Pagination from "../components/Pagination";
@@ -36,7 +35,8 @@ const CATEGORY_NAMES = {
 
 export default function CategoryPage() {
     const { slug } = useParams();
-    const [page, setPage] = useState(1);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = parseInt(searchParams.get("page")) || 1;
     const { data, isLoading } = useCategoryMovies(slug, page);
 
     const movies = data?.data?.items || [];
@@ -76,7 +76,7 @@ export default function CategoryPage() {
                         currentPage={pagination.currentPage || page}
                         totalPages={pagination.pageRanges || 1}
                         onPageChange={(p) => {
-                            setPage(p);
+                            setSearchParams({ page: String(p) });
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
                     />

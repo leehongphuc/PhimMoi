@@ -1,4 +1,4 @@
-import { useState } from "react";
+
 import { useSearchParams } from "react-router-dom";
 import { useDiscoverMovies } from "../api/useMovies";
 import MovieGrid from "../components/MovieGrid";
@@ -13,7 +13,7 @@ export default function DiscoverPage() {
     const country = searchParams.get("country");
     const year = searchParams.get("year");
 
-    const [page, setPage] = useState(1);
+    const page = parseInt(searchParams.get("page")) || 1;
     const { data, isLoading } = useDiscoverMovies({ category, country, year, page });
 
     const movies = data?.data?.items || [];
@@ -48,7 +48,8 @@ export default function DiscoverPage() {
                         currentPage={pagination.currentPage || page}
                         totalPages={pagination.pageRanges || pagination.totalPages || 1}
                         onPageChange={(p) => {
-                            setPage(p);
+                            searchParams.set("page", String(p));
+                            setSearchParams(searchParams);
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
                     />

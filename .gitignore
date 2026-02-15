@@ -9,3 +9,7 @@ build/
 
 # Ignore agent configuration
 .agent/
+
+# Railway config
+railway.toml
+railway.json

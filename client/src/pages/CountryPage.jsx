@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useCountryMovies } from "../api/useMovies";
 import MovieGrid from "../components/MovieGrid";
 import Pagination from "../components/Pagination";
@@ -28,7 +27,8 @@ const COUNTRY_NAMES = {
 
 export default function CountryPage() {
     const { slug } = useParams();
-    const [page, setPage] = useState(1);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = parseInt(searchParams.get("page")) || 1;
     const { data, isLoading } = useCountryMovies(slug, page);
 
     const movies = data?.data?.items || [];
@@ -68,7 +68,7 @@ export default function CountryPage() {
                         currentPage={pagination.currentPage || page}
                         totalPages={pagination.pageRanges || 1}
                         onPageChange={(p) => {
-                            setPage(p);
+                            setSearchParams({ page: String(p) });
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
                     />

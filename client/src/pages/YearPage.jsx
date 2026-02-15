@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useYearMovies } from "../api/useMovies";
 import MovieGrid from "../components/MovieGrid";
 import Pagination from "../components/Pagination";
@@ -9,7 +8,8 @@ import { Calendar } from "lucide-react";
 
 export default function YearPage() {
     const { year } = useParams();
-    const [page, setPage] = useState(1);
+    const [searchParams, setSearchParams] = useSearchParams();
+    const page = parseInt(searchParams.get("page")) || 1;
     const { data, isLoading } = useYearMovies(year, page);
 
     const movies = data?.data?.items || [];
@@ -48,7 +48,7 @@ export default function YearPage() {
                         currentPage={pagination.currentPage || page}
                         totalPages={pagination.pageRanges || 1}
                         onPageChange={(p) => {
-                            setPage(p);
+                            setSearchParams({ page: String(p) });
                             window.scrollTo({ top: 0, behavior: "smooth" });
                         }}
                     />
