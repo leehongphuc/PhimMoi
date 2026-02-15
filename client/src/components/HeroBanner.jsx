@@ -38,7 +38,7 @@ export default function HeroBanner({ movies = [] }) {
     const movie = bannerMovies[currentIndex];
 
     return (
-        <div className="relative w-full rounded-xl sm:rounded-2xl overflow-hidden mb-6 sm:mb-8 group select-none">
+        <div className="relative w-full overflow-hidden mb-6 sm:mb-8 group select-none">
             {/* Slides */}
             <div className="relative h-[220px] sm:h-[300px] md:h-[380px] lg:h-[440px]">
                 {bannerMovies.map((m, i) => (
@@ -64,7 +64,7 @@ export default function HeroBanner({ movies = [] }) {
                 <div className="absolute inset-0 bg-gradient-to-b from-[#06060b]/40 to-transparent h-20" />
 
                 {/* Content */}
-                <div className="absolute inset-0 flex items-end sm:items-center p-4 sm:p-6 md:p-8 lg:p-12">
+                <Link to={`/phim/${movie.slug}`} className="absolute inset-0 flex items-end sm:items-center p-4 sm:p-6 md:p-8 lg:p-12">
                     <div className="max-w-xl animate-fade-in" key={currentIndex}>
                         {/* Badges */}
                         <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-2.5 sm:mb-3">
@@ -105,24 +105,9 @@ export default function HeroBanner({ movies = [] }) {
                         )}
 
                         {/* Actions */}
-                        <div className="flex items-center gap-2.5 sm:gap-3">
-                            <Link
-                                to={`/phim/${movie.slug}`}
-                                className="inline-flex items-center gap-2 px-5 sm:px-7 py-2.5 sm:py-3 bg-gradient-to-r from-[#e50914] to-[#b91c8a] text-white text-xs sm:text-sm font-bold rounded-lg sm:rounded-xl shadow-lg shadow-red-900/30 hover:shadow-red-900/50 hover:brightness-110 transition-all duration-200 active:scale-95"
-                            >
-                                <Play className="w-4 h-4 fill-white" />
-                                Xem Ngay
-                            </Link>
-                            <Link
-                                to={`/phim/${movie.slug}`}
-                                className="inline-flex items-center gap-1.5 px-4 sm:px-5 py-2.5 sm:py-3 bg-white/8 backdrop-blur-md text-white/90 text-xs sm:text-sm font-medium rounded-lg sm:rounded-xl border border-white/10 hover:bg-white/14 hover:border-white/20 transition-all duration-200"
-                            >
-                                <Info className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                                Chi Tiết
-                            </Link>
-                        </div>
+
                     </div>
-                </div>
+                </Link>
 
                 {/* Nav Arrows */}
                 {bannerMovies.length > 1 && (

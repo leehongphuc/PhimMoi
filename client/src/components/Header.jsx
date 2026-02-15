@@ -24,6 +24,11 @@ export default function Header() {
     const [showCountries, setShowCountries] = useState(false);
     const [scrolled, setScrolled] = useState(false);
     const [showYears, setShowYears] = useState(false);
+
+    // Mobile menu expansion state
+    const [expandedCategories, setExpandedCategories] = useState(false);
+    const [expandedCountries, setExpandedCountries] = useState(false);
+    const [expandedYears, setExpandedYears] = useState(false);
     const navigate = useNavigate();
     const catRef = useRef(null);
     const yearRef = useRef(null);
@@ -191,13 +196,13 @@ export default function Header() {
                 }`}
         >
             <div className="px-4 sm:px-6 lg:px-12 xl:px-20">
-                <div className="flex items-center justify-between h-16 lg:h-20 gap-4">
+                <div className="flex items-center justify-between h-16 lg:h-20 gap-2 sm:gap-4">
                     {/* Logo */}
                     <Link to="/" className="flex items-center gap-3 group shrink-0">
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#e50914] to-[#8b5cf6] flex items-center justify-center shadow-lg shadow-red-500/20 group-hover:shadow-red-500/40 transition-all group-hover:scale-105">
                             <Film className="w-5 h-5 text-white fill-white/20" />
                         </div>
-                        <span className="text-xl font-extrabold tracking-tight hidden sm:block">
+                        <span className="text-lg sm:text-xl font-extrabold tracking-tight block">
                             <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-white to-gray-400">Mot</span>
                             <span className="text-[#e50914]">Phim</span>
                         </span>
@@ -260,7 +265,7 @@ export default function Header() {
                             </button>
                             {showCountries && (
                                 <div className="absolute top-full left-0 mt-3 w-[560px] p-5 bg-[#12121a] border border-white/10 rounded-2xl shadow-2xl animate-slide-down grid grid-cols-4 gap-2 z-50">
-                                    {countries.slice(0, 32).map((c) => (
+                                    {countries.map((c) => (
                                         <Link
                                             key={c.slug}
                                             to={`/quoc-gia/${c.slug}`}
@@ -310,7 +315,7 @@ export default function Header() {
                     {/* Desktop Search Bar with Suggestions */}
                     <div ref={searchRef} className="hidden md:block flex-1 max-w-lg mx-8 relative group">
                         <form onSubmit={handleSearch}>
-                            <div className="relative transform transition-all duration-300 group-focus-within:scale-[1.02]">
+                            <div className="relative">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 group-focus-within:text-purple-500 transition-colors" />
                                 <input
                                     type="text"
@@ -318,7 +323,8 @@ export default function Header() {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     onFocus={() => debouncedQuery.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
                                     placeholder="Tìm tên phim, diễn viên..."
-                                    className="w-full pl-11 pr-4 py-3 bg-[#13131c] border border-[rgba(255,255,255,0.08)] rounded-xl text-[15px] text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:bg-[#1a1a24] focus:ring-4 focus:ring-purple-500/10 transition-all shadow-inner"
+                                    className="w-full pl-20 pr-12 py-3 bg-[#13131c] border border-white/10 rounded-xl text-[15px] text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:bg-[#1a1a24]"
+                                    style={{ paddingLeft: '60px' }}
                                 />
                                 {searchQuery && (
                                     <button
@@ -359,7 +365,8 @@ export default function Header() {
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         onFocus={() => debouncedQuery.length >= 2 && suggestions.length > 0 && setShowSuggestions(true)}
                                         placeholder="Tìm phim..."
-                                        className="w-full pl-11 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-base text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-all focus:bg-white/10"
+                                        className="w-full pl-20 pr-12 py-3.5 bg-white/5 border border-white/10 rounded-xl text-base text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 focus:bg-white/10"
+                                        style={{ paddingLeft: '60px' }}
                                     />
                                 </div>
                             </form>
@@ -383,7 +390,7 @@ export default function Header() {
                                 Thể Loại
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                {categories.slice(0, 14).map((cat) => (
+                                {(expandedCategories ? categories : categories.slice(0, 10)).map((cat) => (
                                     <Link
                                         key={cat.slug}
                                         to={`/the-loai/${cat.slug}`}
@@ -394,6 +401,14 @@ export default function Header() {
                                     </Link>
                                 ))}
                             </div>
+                            {categories.length > 10 && (
+                                <button
+                                    onClick={() => setExpandedCategories(!expandedCategories)}
+                                    className="w-full mt-2 py-2 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wider"
+                                >
+                                    {expandedCategories ? "Thu gọn" : "Xem thêm"}
+                                </button>
+                            )}
                         </div>
 
                         <div className="space-y-3 pb-8">
@@ -402,7 +417,7 @@ export default function Header() {
                                 Quốc Gia
                             </div>
                             <div className="grid grid-cols-2 gap-2">
-                                {countries.slice(0, 8).map((c) => (
+                                {(expandedCountries ? countries : countries.slice(0, 8)).map((c) => (
                                     <Link
                                         key={c.slug}
                                         to={`/quoc-gia/${c.slug}`}
@@ -413,6 +428,41 @@ export default function Header() {
                                     </Link>
                                 ))}
                             </div>
+                            {countries.length > 8 && (
+                                <button
+                                    onClick={() => setExpandedCountries(!expandedCountries)}
+                                    className="w-full mt-2 py-2 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wider"
+                                >
+                                    {expandedCountries ? "Thu gọn" : "Xem thêm"}
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="space-y-3 pb-8">
+                            <div className="px-1 flex items-center gap-2 text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                <Calendar className="w-3.5 h-3.5" />
+                                Năm Phát Hành
+                            </div>
+                            <div className="grid grid-cols-4 gap-2">
+                                {(expandedYears ? years : years.slice(0, 12)).map((year) => (
+                                    <Link
+                                        key={year}
+                                        to={`/nam-phat-hanh/${year}`}
+                                        onClick={() => setMobileMenu(false)}
+                                        className="px-2 py-2.5 text-sm text-gray-400 bg-white/[0.03] hover:text-white hover:bg-white/10 rounded-lg transition-colors text-center border border-white/[0.02]"
+                                    >
+                                        {year}
+                                    </Link>
+                                ))}
+                            </div>
+                            {years.length > 12 && (
+                                <button
+                                    onClick={() => setExpandedYears(!expandedYears)}
+                                    className="w-full mt-2 py-2 text-xs font-medium text-purple-400 hover:text-purple-300 transition-colors uppercase tracking-wider"
+                                >
+                                    {expandedYears ? "Thu gọn" : "Xem thêm"}
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
