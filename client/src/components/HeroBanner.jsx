@@ -33,12 +33,41 @@ export default function HeroBanner({ movies = [] }) {
         return () => clearInterval(timer);
     }, [nextSlide, bannerMovies.length]);
 
+    // Mobile Swipe Logic
+    const [touchStart, setTouchStart] = useState(null);
+    const [touchEnd, setTouchEnd] = useState(null);
+    const minSwipeDistance = 50;
+
+    const onTouchStart = (e) => {
+        setTouchEnd(null);
+        setTouchStart(e.targetTouches[0].clientX);
+    };
+
+    const onTouchMove = (e) => {
+        setTouchEnd(e.targetTouches[0].clientX);
+    };
+
+    const onTouchEnd = () => {
+        if (!touchStart || !touchEnd) return;
+        const distance = touchStart - touchEnd;
+        const isLeftSwipe = distance > minSwipeDistance;
+        const isRightSwipe = distance < -minSwipeDistance;
+
+        if (isLeftSwipe) nextSlide();
+        if (isRightSwipe) prevSlide();
+    };
+
     if (bannerMovies.length === 0) return null;
 
     const movie = bannerMovies[currentIndex];
 
     return (
-        <div className="relative w-full overflow-hidden mb-6 sm:mb-8 group select-none">
+        <div
+            className="relative w-full overflow-hidden mb-6 sm:mb-8 group select-none"
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+        >
             {/* Slides */}
             <div className="relative h-[220px] sm:h-[300px] md:h-[380px] lg:h-[440px]">
                 {bannerMovies.map((m, i) => (
